@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import shutil
+import csv
 from PIL import Image
 
 def overlay_images(input_image_path, image_id):
@@ -67,14 +68,35 @@ def overlay_images(input_image_path, image_id):
         print(f"Error removing intermediate file: {e}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python image_overlay.py <input_image> <image_id>")
+    if len(sys.argv) not in [2, 3]:
+        print("Usage: python image_overlay.py <input_image> [image_id]")
         print("Example: python image_overlay.py image_source.png 4007")
+        print("Example: python image_overlay.py \"Exiled Force.png\"")
         sys.exit(1)
 
     input_image = sys.argv[1]
-    image_id = sys.argv[2]
-    
+    image_id = None
+
+    if len(sys.argv) == 3:
+        image_id = sys.argv[2]
+    else:
+        image_name_without_ext = os.path.splitext(input_image)[0]
+        try:
+            with open('cards.csv', mode='r', newline='', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    if row and row[0] == image_name_without_ext:
+                        image_id = row[1]
+                        print(f"Found image ID {image_id} for '{image_name_without_ext}' in cards.csv")
+                        break
+        except FileNotFoundError:
+            print("Error: cards.csv not found. Please provide an image_id.")
+            sys.exit(1)
+        
+        if not image_id:
+            print(f"Error: Image ID for '{image_name_without_ext}' not found in cards.csv. Please specify the ID manually.")
+            sys.exit(1)
+
     # Check if the Pillow library is installed
     try:
         from PIL import Image
