@@ -16,22 +16,39 @@ def overlay_images(input_image_path, image_id):
     # Define file paths
     base_name, extension = os.path.splitext(input_image_path)
     processed_image_path = f"{base_name}_processed.png"
+    small_overlay_path = f"{base_name}_small_overlay.png"
+
     base_image_path = os.path.join("large", f"{image_id}.png")
-    output_dir = os.path.join("output", "large")
-    output_path = os.path.join(output_dir, f"{image_id}.png")
-    backup_dir = os.path.join("backup", "large")
-    backup_path = os.path.join(backup_dir, f"{image_id}.png")
+    output_dir_large = os.path.join("output", "large")
+    output_path_large = os.path.join(output_dir_large, f"{image_id}.png")
+    backup_dir_large = os.path.join("backup", "large")
+    backup_path_large = os.path.join(backup_dir_large, f"{image_id}.png")
+
+    small_base_image_path = os.path.join("small", f"{image_id}.png")
+    output_dir_small = os.path.join("output", "small")
+    output_path_small = os.path.join(output_dir_small, f"{image_id}.png")
+    backup_dir_small = os.path.join("backup", "small")
+    backup_path_small = os.path.join(backup_dir_small, f"{image_id}.png")
 
     # Ensure the output and backup directories exist
-    os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(backup_dir, exist_ok=True)
+    os.makedirs(output_dir_large, exist_ok=True)
+    os.makedirs(backup_dir_large, exist_ok=True)
+    os.makedirs(output_dir_small, exist_ok=True)
+    os.makedirs(backup_dir_small, exist_ok=True)
 
-    # Backup the original file
+    # Backup the original large file
     if os.path.exists(base_image_path):
-        print(f"Backing up {base_image_path} to {backup_path}")
-        shutil.copyfile(base_image_path, backup_path)
+        print(f"Backing up {base_image_path} to {backup_path_large}")
+        shutil.copyfile(base_image_path, backup_path_large)
     else:
         print(f"Warning: {base_image_path} not found, skipping backup.")
+
+    # Backup the original small file
+    if os.path.exists(small_base_image_path):
+        print(f"Backing up {small_base_image_path} to {backup_path_small}")
+        shutil.copyfile(small_base_image_path, backup_path_small)
+    else:
+        print(f"Warning: {small_base_image_path} not found, skipping backup.")
 
     # Step 1: Invoke tag_force_cropper.py
     print(f"Running tag_force_cropper.py on {input_image_path}...")
@@ -42,28 +59,62 @@ def overlay_images(input_image_path, image_id):
         print(f"Error running tag_force_cropper.py: {e}")
         sys.exit(1)
 
-    # Step 2: Load the images
+    # Step 2: Load the large images
     try:
         base_image = Image.open(base_image_path).convert("RGBA")
         overlay_image = Image.open(processed_image_path).convert("RGBA")
-        print("Images loaded successfully.")
+        print("Large images loaded successfully.")
     except FileNotFoundError as e:
-        print(f"Error loading images: {e}")
+        print(f"Error loading large images: {e}")
         sys.exit(1)
 
-    # Step 3: Overlay the images
-    # The paste method respects the alpha channel of the overlay image.
+    # Step 3: Overlay the large images
     base_image.paste(overlay_image, (0, 0), overlay_image)
-    print("Image overlay complete.")
+    print("Large image overlay complete.")
 
-    # Step 4: Save the result
-    base_image.save(output_path)
-    print(f"Output image saved to {output_path}")
+    # Step 4: Save the large result
+    base_image.save(output_path_large)
+    print(f"Output image saved to {output_path_large}")
 
-    # Step 5: Remove the intermediate processed image
+    # Step 5: Remove the intermediate large processed image
     try:
         os.remove(processed_image_path)
         print(f"Removed intermediate file: {processed_image_path}")
+    except OSError as e:
+        print(f"Error removing intermediate file: {e}")
+
+    # --- small Image Processing ---
+
+    # Step 6: Invoke tag_force_small_thumb_generator.py
+    print(f"Running tag_force_small_thumb_generator.py on {input_image_path}...")
+    try:
+        subprocess.run(["python", "tag_force_small_thumb_generator.py", input_image_path], check=True)
+        print(f"Successfully created {small_overlay_path}")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"Error running tag_force_small_thumb_generator.py: {e}")
+        sys.exit(1)
+
+    # Step 7: Load the small images
+    try:
+        small_base_image = Image.open(small_base_image_path).convert("RGBA")
+        small_overlay_image = Image.open(small_overlay_path).convert("RGBA")
+        print("small images loaded successfully.")
+    except FileNotFoundError as e:
+        print(f"Error loading small images: {e}")
+        sys.exit(1)
+
+    # Step 8: Overlay the small images
+    small_base_image.paste(small_overlay_image, (0, 0), small_overlay_image)
+    print("small image overlay complete.")
+
+    # Step 9: Save the small result
+    small_base_image.save(output_path_small)
+    print(f"Output small image saved to {output_path_small}")
+
+    # Step 10: Remove the intermediate small processed image
+    try:
+        os.remove(small_overlay_path)
+        print(f"Removed intermediate file: {small_overlay_path}")
     except OSError as e:
         print(f"Error removing intermediate file: {e}")
 
