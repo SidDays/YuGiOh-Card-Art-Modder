@@ -118,6 +118,78 @@ def overlay_images(input_image_path, image_id):
     except OSError as e:
         print(f"Error removing intermediate file: {e}")
 
+    # --- Tiny Atlas Processing ---
+
+    # Step 11: Find the small image in the tiny atlas
+    print(f"Finding '{image_id}' in tiny atlases...")
+    try:
+        result = subprocess.run(
+            ["python", "tag_force_tiny_thumb_finder.py", image_id],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        
+        # Parse the output from the finder script
+        lines = result.stdout.strip().split('\n')
+        atlas_file = None
+        pixel_x, pixel_y = -1, -1
+
+        for line in lines:
+            if "Atlas File:" in line:
+                atlas_file = line.split("Atlas File:")[1].strip()
+            elif "Best Match Pixel X:" in line:
+                pixel_x = int(line.split("Best Match Pixel X:")[1].strip())
+            elif "Best Match Pixel Y:" in line:
+                pixel_y = int(line.split("Best Match Pixel Y:")[1].strip())
+
+        if not atlas_file or pixel_x == -1 or pixel_y == -1:
+            print("Error: Could not parse output from tag_force_tiny_thumb_finder.py")
+            sys.exit(1)
+            
+        print(f"Found match in '{atlas_file}' at coordinates ({pixel_x}, {pixel_y})")
+
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"Error running tag_force_tiny_thumb_finder.py: {e}")
+        if hasattr(e, 'stderr'):
+            print(e.stderr)
+        sys.exit(1)
+
+    # Step 12: Backup, overlay, and save the tiny atlas
+    try:
+        # Define atlas paths
+        atlas_path = os.path.join("tiny", atlas_file)
+        backup_atlas_path = os.path.join("backup", "tiny", atlas_file)
+        output_atlas_path = os.path.join("output", "tiny", atlas_file)
+
+        # Ensure directories exist
+        os.makedirs(os.path.join("backup", "tiny"), exist_ok=True)
+        os.makedirs(os.path.join("output", "tiny"), exist_ok=True)
+
+        # Backup the original atlas
+        print(f"Backing up {atlas_path} to {backup_atlas_path}")
+        shutil.copyfile(atlas_path, backup_atlas_path)
+
+        # Load the modified small image and resize it for the atlas
+        modified_small_image = Image.open(output_path_small).convert("RGBA")
+        atlas_overlay = modified_small_image.resize((88, 120), Image.Resampling.LANCZOS)
+
+        # Load the atlas and paste the overlay
+        atlas_base_image = Image.open(atlas_path).convert("RGBA")
+        atlas_base_image.paste(atlas_overlay, (pixel_x, pixel_y), atlas_overlay)
+        
+        # Save the modified atlas
+        atlas_base_image.save(output_atlas_path)
+        print(f"Saved modified atlas to {output_atlas_path}")
+
+    except FileNotFoundError as e:
+        print(f"Error processing atlas file: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred during atlas processing: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     if len(sys.argv) not in [2, 3]:
         print("Usage: python image_overlay.py <input_image> [image_id]")
