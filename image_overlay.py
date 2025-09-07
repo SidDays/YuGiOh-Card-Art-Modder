@@ -166,16 +166,27 @@ def overlay_images(input_image_path, image_id):
         os.makedirs(os.path.join("backup", "tiny"), exist_ok=True)
         os.makedirs(os.path.join("output", "tiny"), exist_ok=True)
 
-        # Backup the original atlas
-        print(f"Backing up {atlas_path} to {backup_atlas_path}")
-        shutil.copyfile(atlas_path, backup_atlas_path)
+        # Backup the original atlas if it doesn't exist
+        if not os.path.exists(backup_atlas_path):
+            print(f"Backing up {atlas_path} to {backup_atlas_path}")
+            shutil.copyfile(atlas_path, backup_atlas_path)
+        else:
+            print(f"Backup for {atlas_file} already exists, skipping backup.")
 
         # Load the modified small image and resize it for the atlas
         modified_small_image = Image.open(output_path_small).convert("RGBA")
         atlas_overlay = modified_small_image.resize((88, 120), Image.Resampling.LANCZOS)
 
-        # Load the atlas and paste the overlay
-        atlas_base_image = Image.open(atlas_path).convert("RGBA")
+        # Load the atlas for modification
+        # If an output atlas already exists, use it; otherwise, use the original.
+        if os.path.exists(output_atlas_path):
+            print(f"Found existing output atlas. Loading {output_atlas_path} for modification.")
+            atlas_base_image = Image.open(output_atlas_path).convert("RGBA")
+        else:
+            print(f"No existing output atlas found. Loading {atlas_path} for modification.")
+            atlas_base_image = Image.open(atlas_path).convert("RGBA")
+
+        # Paste the overlay
         atlas_base_image.paste(atlas_overlay, (pixel_x, pixel_y), atlas_overlay)
         
         # Save the modified atlas
