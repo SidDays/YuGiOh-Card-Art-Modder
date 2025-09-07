@@ -2,9 +2,9 @@ import sys
 import os
 from PIL import Image
 
-def create_tiny_thumbnail(input_image_path):
+def create_small_thumbnail(input_image_path):
     """
-    Processes an input image to create a tiny thumbnail for Tag Force.
+    Processes an input image to create a small thumbnail for Tag Force.
 
     Args:
         input_image_path (str): The path to the source image.
@@ -30,11 +30,11 @@ def create_tiny_thumbnail(input_image_path):
 
     # Determine the output path
     base_name, extension = os.path.splitext(input_image_path)
-    output_path = f"{base_name}_tiny_overlay.png"
+    output_path = f"{base_name}_small_overlay.png"
 
     # Save the final image
     final_image.save(output_path)
-    print(f"Successfully created tiny thumbnail: {output_path}")
+    print(f"Successfully created small thumbnail: {output_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -50,4 +50,4 @@ if __name__ == "__main__":
         sys.exit(1)
         
     input_image = sys.argv[1]
-    create_tiny_thumbnail(input_image)
+    create_small_thumbnail(input_image)
