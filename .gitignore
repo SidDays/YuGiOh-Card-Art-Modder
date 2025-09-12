@@ -3,3 +3,4 @@ small/
 tiny/
 frame/
 /*.png
+*.code-workspace
