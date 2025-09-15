@@ -214,7 +214,8 @@ if __name__ == "__main__":
     if len(sys.argv) == 3:
         image_id = sys.argv[2]
     else:
-        image_name_without_ext = os.path.splitext(input_image)[0]
+        # Get the filename from the path, then remove the extension
+        image_name_without_ext = os.path.splitext(os.path.basename(input_image))[0]
         try:
             with open('cards.csv', mode='r', newline='', encoding='utf-8') as csvfile:
                 reader = csv.reader(csvfile)
