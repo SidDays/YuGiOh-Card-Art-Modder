@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pathvalidate import sanitize_filename
 import os
 
-def create_text_image(name, output_filename=None, font_path="Yu-Gi-Oh! Matrix Regular Small Caps 2.ttf"):
+def create_text_image(name, output_filename=None, font_path="Yu-Gi-Oh! Matrix Regular Small Caps 2.ttf", color="black"):
     """
     Creates a PNG image with the given text typeset onto a canvas of a specified size.
 
@@ -10,6 +10,7 @@ def create_text_image(name, output_filename=None, font_path="Yu-Gi-Oh! Matrix Re
         name (str): The text to write on the image.
         output_filename (str): The name of the output PNG file.
         font_path (str): Path to the TTF font file.
+        color (str): The color of the text.
     """
     if output_filename is None:
         sanitized_name = sanitize_filename(name)
@@ -17,10 +18,6 @@ def create_text_image(name, output_filename=None, font_path="Yu-Gi-Oh! Matrix Re
 
     # Create the final canvas
     final_img = Image.new('RGBA', (384, 48), (255, 255, 255, 0))
-
-    # Create a temporary image for the text itself
-    text_img = Image.new('RGBA', (296, 32), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(text_img)
 
     # --- Font Selection ---
     font_size = 60
@@ -31,7 +28,7 @@ def create_text_image(name, output_filename=None, font_path="Yu-Gi-Oh! Matrix Re
         print(f"Font at '{font_path}' not found. Using default font.")
         font = ImageFont.load_default()
         # Fallback font sizing is less precise
-        bbox = draw.textbbox((0,0), name, font=font)
+        bbox = ImageDraw.Draw(Image.new('RGBA', (1,1))).textbbox((0,0), name, font=font)
         text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
         font_size = int(32 * (32 / text_height))
         try:
@@ -48,7 +45,7 @@ def create_text_image(name, output_filename=None, font_path="Yu-Gi-Oh! Matrix Re
     # Create a correctly sized temporary image for the text
     text_img = Image.new('RGBA', (text_render_width, text_render_height), (255, 255, 255, 0))
     draw = ImageDraw.Draw(text_img)
-    draw.text((0, 0), name, font=font, fill="black")
+    draw.text((0, 0), name, font=font, fill=color)
 
     # --- Horizontal Squishing if necessary ---
     if text_render_width > 296:
@@ -72,9 +69,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create an image with typeset text.")
     parser.add_argument("name", type=str, help="The text to write on the image.")
     parser.add_argument("--font", type=str, default="Yu-Gi-Oh! Matrix Regular Small Caps 2.ttf", help="Path to the TTF font file.")
+    parser.add_argument("--color", type=str, default="black", help="The color of the text (e.g., 'black', '#FFFFFF').")
     parser.add_argument("-o", "--output", dest="output_filename", type=str, default=None,
                         help="The name of the output PNG file (default: {name}_title.png)")
 
     args = parser.parse_args()
 
-    create_text_image(args.name, args.output_filename, args.font)
+    create_text_image(args.name, args.output_filename, args.font, args.color)
