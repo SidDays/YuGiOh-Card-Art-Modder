@@ -7,22 +7,18 @@ import time
 
 # --- Configuration ---
 # 1. Path to your HASHED English dump (Set A)
-set_a_folder = r"D:\My Stuff\My Yu-Gi-Oh\Card Art Edits\TF Mod\TF1\missinghash"
+set_a_folder = r"D:\My Stuff\My Yu-Gi-Oh\Card Art Edits\TF Mod\TF1\missing_hash"
 
 # 2. Path to your CLEANLY-NAMED Japanese dump (Set C)
-set_c_folder = r"D:\Stuff\Game Mods\Yu-Gi-Oh! Tag Force Series\Tools\Original Japanese ISO card images\cardh_j"
+set_c_folder = r"D:\Stuff\Game Mods\Yu-Gi-Oh! Tag Force Series\Tools\cardh_e"
 
 # 3. Path where you want the final textures.ini to be saved
 output_ini_file = r"D:\My Stuff\My Yu-Gi-Oh\Card Art Edits\TF Mod\TF1\missinghash\textures.ini"
 
-# 4. How "similar" images must be to match (0 is identical, 1-5 is very close).
-#    Start with 1. If you miss some, try 5.
-hash_similarity_threshold = 10
-
-# 5. --- Mod 2: Filename for the hash database cache
+# 4. --- Mod 2: Filename for the hash database cache
 cache_filename = "hash_database.cache"
 
-# 6. --- Mod 1: Crop box: (left, upper, right, lower).
+# 5. --- Mod 1: Crop box: (left, upper, right, lower).
 crop_box = (0, 0, 78, 60)  # Top-left 78x60 pixels
 # ---------------------
 
@@ -90,20 +86,19 @@ def build_hash_database(folder_path, crop_box, cache_file_name):
     return database
 
 
-def match_and_generate_ini(set_a_path, set_c_path, database, output_path, threshold, crop_box):
+def match_and_generate_ini(set_a_path, set_c_path, database, output_path, crop_box):
     """
     Scans Set A (English dump), compares with the database,
     and writes the textures.ini file.
     --- Mod 1: Now uses cropped hashes for Set A. ---
+    --- Mod 5: Finds the absolute closest match instead of using a threshold. ---
     """
     print(f"--- Phase 2: Matching hashes from {set_a_path} ---")
 
     # --- Mod 3: Create a temp directory for comparison images ---
     output_dir = os.path.dirname(output_path)
     temp_dir = os.path.join(output_dir, "temp")
-    temp_unfound_dir = os.path.join(output_dir, "temp_unfound")
     os.makedirs(temp_dir, exist_ok=True)
-    os.makedirs(temp_unfound_dir, exist_ok=True)
     # ---------------------------------------------------------
     
     ini_entries = set()
@@ -121,21 +116,20 @@ def match_and_generate_ini(set_a_path, set_c_path, database, output_path, thresh
             # --- Mod 1: Use the new cropping/hashing function ---
             hash_a = get_cropped_hash(img_a_path, crop_box)
             
-            # Look for a match in the database
+            # --- Mod 5: Find the closest match in the database ---
             best_match_filename = None
-            
-            # First, check for a perfect (distance=0) match
-            if hash_a in database:
-                best_match_filename = database[hash_a]
-            
-            # If no perfect match, check for a "close enough" match
-            elif threshold > 0:
-                for hash_c, filename_c in database.items():
-                    distance = hash_a - hash_c
-                    if distance <= threshold:
-                        best_match_filename = filename_c
-                        break # Found a close enough match
-            
+            min_distance = float('inf')
+
+            for hash_c, filename_c in database.items():
+                distance = hash_a - hash_c
+                if distance < min_distance:
+                    min_distance = distance
+                    best_match_filename = filename_c
+                # If we find a perfect match, we can stop searching for this image
+                if min_distance == 0:
+                    break
+            # ----------------------------------------------------
+
             # If we found a match...
             if best_match_filename:
                 # Get the PPSSPP hash (the original filename without .png)
@@ -146,7 +140,7 @@ def match_and_generate_ini(set_a_path, set_c_path, database, output_path, thresh
                 ini_entries.add(ini_line)
                 matches_found += 1
 
-                # --- Mod 3: Create and save the combined image for verification ---
+                # --- Mod 3 & 5: Create and save the combined image for verification ---
                 try:
                     img_c_path = os.path.join(set_c_path, best_match_filename)
                     with Image.open(img_a_path) as img_a, Image.open(img_c_path) as img_c:
@@ -162,24 +156,14 @@ def match_and_generate_ini(set_a_path, set_c_path, database, output_path, thresh
                         combined_img.paste(img_a, (0, 0))
                         combined_img.paste(img_c, (0, img_a.height))
 
-                        # Save the combined image
-                        combined_filename = f"{ppsspp_hash}_{os.path.splitext(best_match_filename)[0]}.png"
+                        # Save the combined image with distance in the filename
+                        combined_filename = f"{ppsspp_hash}_{os.path.splitext(best_match_filename)[0]}_d{min_distance}.png"
                         combined_save_path = os.path.join(temp_dir, combined_filename)
                         combined_img.save(combined_save_path)
 
                 except Exception as e:
                     print(f"  Warning: Could not create combined image for {filename_a}. Error: {e}")
                 # --------------------------------------------------------------------
-            else:
-                # --- Mod 4: Handle images with no match ---
-                try:
-                    ppsspp_hash = os.path.splitext(filename_a)[0]
-                    unfound_filename = f"{ppsspp_hash}_UNKNOWN.png"
-                    unfound_save_path = os.path.join(temp_unfound_dir, unfound_filename)
-                    shutil.copy2(img_a_path, unfound_save_path)
-                except Exception as e:
-                    print(f"  Warning: Could not copy unfound file {filename_a}. Error: {e}")
-                # -----------------------------------------
 
             if total_files % 500 == 0:
                 print(f"  ...scanned {total_files} files. Found {matches_found} matches.")
@@ -213,7 +197,7 @@ try:
     
     # Phase 2 - Pass crop_box
     if hash_db:
-        match_and_generate_ini(set_a_folder, set_c_folder, hash_db, output_ini_file, hash_similarity_threshold, crop_box)
+        match_and_generate_ini(set_a_folder, set_c_folder, hash_db, output_ini_file, crop_box)
     else:
         print("Error: Hash database is empty. Check Set C folder path.")
 
