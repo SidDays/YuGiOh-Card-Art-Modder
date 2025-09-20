@@ -1,8 +1,3 @@
-large/
-small/
-tiny/
-frame/
-/*.png
+images/
+fonts/
 *.code-workspace
-*.ttf
-missinghash/
