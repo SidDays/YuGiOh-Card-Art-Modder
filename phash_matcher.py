@@ -1,50 +1,36 @@
 import imagehash
 import os
-import pickle  # --- Mod 2: Added for caching
-import shutil
-from PIL import Image
+import pickle
 import time
+from PIL import Image
 
 # --- Configuration ---
-# 1. Path to your HASHED English dump (Set A)
-set_a_folder = r"D:\My Stuff\My Yu-Gi-Oh\Card Art Edits\TF Mod\TF1\missing_hash"
+# 1. Path to your texture dump with PPSSPP hashes (Set A)
+set_a_folder = r"D:\tiny\dump"
 
-# 2. Path to your CLEANLY-NAMED Japanese dump (Set C)
-set_c_folder = r"D:\Stuff\Game Mods\Yu-Gi-Oh! Tag Force Series\Tools\cardh_e"
+# 2. Path to your correctly named textures (Set B)
+set_b_folder = r"D:\tiny"
 
-# 3. Path where you want the final textures.ini to be saved
-output_ini_file = r"D:\My Stuff\My Yu-Gi-Oh\Card Art Edits\TF Mod\TF1\missinghash\textures.ini"
-
-# 4. --- Mod 2: Filename for the hash database cache
+# 3. Filename for the hash database cache
 cache_filename = "hash_database.cache"
 
-# 5. --- Mod 1: Crop box: (left, upper, right, lower).
-crop_box = (0, 0, 78, 60)  # Top-left 78x60 pixels
+# 4. Path where you want the final textures.ini to be saved
+output_ini_file = r"D:\tiny\output2"
+
 # ---------------------
 
 
-def get_cropped_hash(img_path, crop_box):
+def build_hash_database(folder_path, cache_file_name):
     """
-    --- Mod 1: Helper function to open, crop, and hash an image.
-    """
-    with Image.open(img_path) as img:
-        # Crop the image to the specified box
-        cropped_img = img.crop(crop_box)
-        # Generate the hash from the cropped image
-        return imagehash.dhash(cropped_img)
-
-
-def build_hash_database(folder_path, crop_box, cache_file_name):
-    """
-    Scans Set C (Japanese dump) and creates a database
+    Scans the set of correctly named textures and creates a database
     of {image_hash: "clean_filename.png"}.
-    --- Mod 2: Uses a cache file if available. ---
+    --- Uses a cache file if available. ---
     """
     print(f"--- Phase 1: Building/Loading hash database from {folder_path} ---")
     
     cache_file_path = os.path.join(folder_path, cache_file_name)
     
-    # --- Mod 2: Caching Logic ---
+    # --- Caching Logic ---
     if os.path.exists(cache_file_path):
         try:
             print(f"  Found cache file! Loading from {cache_file_path}...")
@@ -64,8 +50,9 @@ def build_hash_database(folder_path, crop_box, cache_file_name):
             try:
                 img_path = os.path.join(folder_path, filename)
                 
-                # --- Mod 1: Use the new cropping/hashing function ---
-                img_hash = get_cropped_hash(img_path, crop_box) 
+                # --- Use the new cropping/hashing function ---
+                with Image.open(img_path) as img:
+                    img_hash = imagehash.dhash(img)
                 
                 database[img_hash] = filename
                 count += 1
@@ -74,7 +61,7 @@ def build_hash_database(folder_path, crop_box, cache_file_name):
             except Exception as e:
                 print(f"  Warning: Could not process {filename}. Error: {e}")
     
-    # --- Mod 2: Save to cache ---
+    # --- Save to cache ---
     try:
         print(f"  Saving database to cache file: {cache_file_path}")
         with open(cache_file_path, 'wb') as f:
@@ -86,16 +73,15 @@ def build_hash_database(folder_path, crop_box, cache_file_name):
     return database
 
 
-def match_and_generate_ini(set_a_path, set_c_path, database, output_path, crop_box):
+def match_and_generate_ini(set_a_path, set_b_path, database, output_path):
     """
     Scans Set A (English dump), compares with the database,
     and writes the textures.ini file.
-    --- Mod 1: Now uses cropped hashes for Set A. ---
-    --- Mod 5: Finds the absolute closest match instead of using a threshold. ---
+    Finds the absolute closest match instead of using a threshold.
     """
     print(f"--- Phase 2: Matching hashes from {set_a_path} ---")
 
-    # --- Mod 3: Create a temp directory for comparison images ---
+    # --- Create a temp directory for comparison images ---
     output_dir = os.path.dirname(output_path)
     temp_dir = os.path.join(output_dir, "temp")
     os.makedirs(temp_dir, exist_ok=True)
@@ -113,10 +99,11 @@ def match_and_generate_ini(set_a_path, set_c_path, database, output_path, crop_b
         try:
             img_a_path = os.path.join(set_a_path, filename_a)
             
-            # --- Mod 1: Use the new cropping/hashing function ---
-            hash_a = get_cropped_hash(img_a_path, crop_box)
+            # Use the new hashing function
+            with Image.open(img_a_path) as img:
+                hash_a = imagehash.dhash(img)
             
-            # --- Mod 5: Find the closest match in the database ---
+            # Find the closest match in the database
             best_match_filename = None
             min_distance = float('inf')
 
@@ -140,9 +127,9 @@ def match_and_generate_ini(set_a_path, set_c_path, database, output_path, crop_b
                 ini_entries.add(ini_line)
                 matches_found += 1
 
-                # --- Mod 3 & 5: Create and save the combined image for verification ---
+                # --- Create and save the combined image for verification ---
                 try:
-                    img_c_path = os.path.join(set_c_path, best_match_filename)
+                    img_c_path = os.path.join(set_b_path, best_match_filename)
                     with Image.open(img_a_path) as img_a, Image.open(img_c_path) as img_c:
                         # Ensure both images are in a compatible mode, e.g., RGBA
                         img_a = img_a.convert("RGBA")
@@ -193,13 +180,13 @@ def match_and_generate_ini(set_a_path, set_c_path, database, output_path, crop_b
 start_time = time.time()
 try:
     # Phase 1 - Pass crop_box and cache_filename
-    hash_db = build_hash_database(set_c_folder, crop_box, cache_filename)
+    hash_db = build_hash_database(set_b_folder, cache_filename)
     
     # Phase 2 - Pass crop_box
     if hash_db:
-        match_and_generate_ini(set_a_folder, set_c_folder, hash_db, output_ini_file, crop_box)
+        match_and_generate_ini(set_a_folder, set_b_folder, hash_db, output_ini_file)
     else:
-        print("Error: Hash database is empty. Check Set C folder path.")
+        print("Error: Hash database is empty. Check Set B folder path.")
 
 except FileNotFoundError as e:
     print(f"\n*** FATAL ERROR ***")
