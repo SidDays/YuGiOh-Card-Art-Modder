@@ -50,7 +50,6 @@ def build_hash_database(folder_path, cache_file_name):
             try:
                 img_path = os.path.join(folder_path, filename)
                 
-                # --- Use the new cropping/hashing function ---
                 with Image.open(img_path) as img:
                     img_hash = imagehash.dhash(img)
                 
@@ -99,7 +98,6 @@ def match_and_generate_ini(set_a_path, set_b_path, database, output_path):
         try:
             img_a_path = os.path.join(set_a_path, filename_a)
             
-            # Use the new hashing function
             with Image.open(img_a_path) as img:
                 hash_a = imagehash.dhash(img)
             
